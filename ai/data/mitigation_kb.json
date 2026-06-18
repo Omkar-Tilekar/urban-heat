@@ -1,0 +1,67 @@
+[
+  {
+    "id": "cool_roofs",
+    "name": "Cool Roofs & White Roof Coatings",
+    "category": "Albedo Modification",
+    "description": "Applying high Solar Reflectance Index (SRI) white paints, elastomeric coatings, or single-ply membranes to building roofs. Reflects solar radiation and prevents heat absorption.",
+    "cost": "Low (INR 50 - 150 per sq. meter)",
+    "implementation_time": "1 - 3 days",
+    "expected_cooling": "1.5 - 2.5°C local LST reduction; 2.0 - 4.0°C indoor temperature drop",
+    "maintenance_cost": "Low (Requires cleaning every 1-2 years)",
+    "suitable_conditions": "High-density concrete residential areas, industrial warehouses, commercial buildings with flat concrete roofs.",
+    "case_study": "Ahmedabad Heat Action Plan (2013-Present): Over 3,000 households painted with white reflective paint, resulting in a noticeable reduction in heat-related morbidity in slums.",
+    "references": "ISRO Bhuvan LST Monitoring Guidelines, Bureau of Energy Efficiency (BEE) India Cool Roof manual."
+  },
+  {
+    "id": "green_roofs",
+    "name": "Green Roofs (Rooftop Gardens)",
+    "category": "Vegetation / Canopy",
+    "description": "Vegetative layers planted over waterproofing membranes on flat building roofs. They cool buildings through shade, thermal insulation, and evapotranspiration.",
+    "cost": "High (INR 1,500 - 3,500 per sq. meter)",
+    "implementation_time": "1 - 2 weeks",
+    "expected_cooling": "2.0 - 3.5°C local LST reduction; significant reduction in building HVAC energy load by up to 25%.",
+    "maintenance_cost": "High (Requires irrigation, weeding, and structural load monitoring)",
+    "suitable_conditions": "Commercial centers, apartments, or structures with certified structural load-bearing capacity.",
+    "case_study": "Singapore Skyrise Greenery Initiative: Financial incentives led to extensive green roof coverage, lowering building energy footprints and reducing micro-climate temperatures by 1.8°C.",
+    "references": "EPA Urban Heat Island Mitigation, ISRO VEDAS Urban Greenery index."
+  },
+  {
+    "id": "urban_forests",
+    "name": "Miyawaki & Urban Forests",
+    "category": "Vegetation / Canopy",
+    "description": "Afforestation technique by planting multi-layered native saplings close together. Creates dense, fast-growing local forest canopies that provide shade, absorb CO2, and release moisture.",
+    "cost": "Medium (INR 500 - 1,200 per sapling including soil prep)",
+    "implementation_time": "3 - 6 months (Mature canopy in 2-3 years)",
+    "expected_cooling": "3.0 - 5.0°C local air/LST temperature drop; creates wildlife corridors.",
+    "maintenance_cost": "Medium (Intense watering and weeding needed for the first 2 years only)",
+    "suitable_conditions": "Vacant public land, highway buffers, school grounds, lake surroundings, and institutional campuses.",
+    "case_study": "Bengaluru Miyawaki Forests (Kanakapura Road & Peenya): Local civic groups and BBMP converted industrial dump yards into thriving native forests, lowering local temperatures by 3.2°C.",
+    "references": "Indian Journal of Forestry, VEDAS Forest Canopy Density Products."
+  },
+  {
+    "id": "cool_pavements",
+    "name": "Cool and Permeable Pavements",
+    "category": "Albedo Modification",
+    "description": "Using high-albedo paving materials or permeable/porous interlocking concrete blocks. Allows water infiltration and evaporative cooling while reflecting solar radiation.",
+    "cost": "Medium (INR 400 - 800 per sq. meter)",
+    "implementation_time": "1 - 2 weeks",
+    "expected_cooling": "1.0 - 2.0°C reduction in street-level ambient temperature; helps in groundwater recharge.",
+    "maintenance_cost": "Low-Medium (Requires occasional pressure washing to clear pores)",
+    "suitable_conditions": "Pedestrian walkways, public plazas, sidewalks, parking lots, and low-traffic suburban roads.",
+    "case_study": "New York City Cool Pavements Pilot: High-reflectance coatings on asphalt plazas lowered surface temperatures by 10°F (5.5°C) and reduced pedestrian heat stress.",
+    "references": "CRRC Pavement Materials guidelines, IMD heatwave management templates."
+  },
+  {
+    "id": "blue_green_infrastructure",
+    "name": "Blue-Green Infrastructure (Water Corridors)",
+    "category": "Water Elements",
+    "description": "Combining drainage channels, retention ponds, and bioswales with riparian vegetation. Facilitates natural cooling through water evaporation and shading.",
+    "cost": "High (Requires civil excavation and ecological planning)",
+    "implementation_time": "2 - 6 months",
+    "expected_cooling": "2.5 - 4.5°C temperature drop within a 150m buffer zone around the water bodies.",
+    "maintenance_cost": "Medium-High (Desilting, debris removal, water-quality checks)",
+    "suitable_conditions": "Low-lying areas, lake channels, stormwater collection valleys, flood-prone neighborhoods.",
+    "case_study": "Sabarmati Riverfront (Ahmedabad) & Bengaluru Lakes Restoration: Restoring lakes like Jakkur with surrounding green corridors reduced the local UHI intensity by up to 2.8°C.",
+    "references": "ISRO Bhuvan Water Body mapping, National Water Mission India."
+  }
+]
