@@ -14,6 +14,7 @@ export default function App() {
   const [selectedCells, setSelectedCells] = useState([]);
   const [simulatedData, setSimulatedData] = useState(null);
   const [simulatedCells, setSimulatedCells] = useState(null);
+  const [selectedRegion, setSelectedRegion] = useState('india'); // Region switcher state
   
   const [activeTab, setActiveTab] = useState('overview');
   
@@ -21,22 +22,27 @@ export default function App() {
   const [loadingSimulation, setLoadingSimulation] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // 1. Fetch initial statistics and grid data
+  // 1. Fetch statistics and grid data based on selected region
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoadingGrid(true);
         setErrorMsg(null);
         
-        const statsRes = await fetch('http://localhost:8000/api/map/stats');
+        const statsRes = await fetch(`http://localhost:8000/api/map/stats?region=${selectedRegion}`);
         if (!statsRes.ok) throw new Error('Failed to load summary stats');
         const statsJson = await statsRes.json();
         setStats(statsJson);
 
-        const gridRes = await fetch('http://localhost:8000/api/map/grid');
+        const gridRes = await fetch(`http://localhost:8000/api/map/grid?region=${selectedRegion}`);
         if (!gridRes.ok) throw new Error('Failed to load map grid');
         const gridJson = await gridRes.json();
         setGrid(gridJson);
+
+        // Clear selections and simulation details when switching regions
+        setSelectedCells([]);
+        setSimulatedData(null);
+        setSimulatedCells(null);
       } catch (err) {
         setErrorMsg('⚠️ Connection Failed: Make sure the FastAPI backend is running on http://localhost:8000');
         console.error(err);
@@ -45,14 +51,14 @@ export default function App() {
       }
     };
     fetchData();
-  }, []);
+  }, [selectedRegion]);
 
-  // 2. Fetch hotspot clusters when toggled or loaded
+  // 2. Fetch hotspot clusters when toggled or region changes
   useEffect(() => {
-    if (showHotspots && hotspots.length === 0) {
+    if (showHotspots) {
       const fetchHotspots = async () => {
         try {
-          const res = await fetch('http://localhost:8000/api/map/hotspots');
+          const res = await fetch(`http://localhost:8000/api/map/hotspots?region=${selectedRegion}`);
           if (!res.ok) throw new Error('Failed to load hotspots');
           const data = await res.json();
           setHotspots(data);
@@ -61,8 +67,10 @@ export default function App() {
         }
       };
       fetchHotspots();
+    } else {
+      setHotspots([]);
     }
-  }, [showHotspots]);
+  }, [showHotspots, selectedRegion]);
 
   // 3. Selection Handlers
   const handleToggleCellSelection = (cellIdOrArray) => {
@@ -81,8 +89,8 @@ export default function App() {
 
   const handleSelectHotspots = () => {
     if (hotspots.length === 0) {
-      // Fetch and select hotspots
-      fetch('http://localhost:8000/api/map/hotspots')
+      // Fetch and select hotspots for active region
+      fetch(`http://localhost:8000/api/map/hotspots?region=${selectedRegion}`)
         .then(res => res.json())
         .then(data => {
           setHotspots(data);
@@ -104,7 +112,8 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cell_ids: cellIds,
-          intervention_type: interventionType
+          intervention_type: interventionType,
+          region: selectedRegion
         })
       });
 
@@ -199,6 +208,8 @@ export default function App() {
                   selectedCellsCount={selectedCells.length}
                   onClearSelection={handleClearSelection}
                   onSelectHotspots={handleSelectHotspots}
+                  selectedRegion={selectedRegion}
+                  onSelectRegion={setSelectedRegion}
                 />
               )}
               {activeTab === 'simulate' && (
@@ -254,6 +265,7 @@ export default function App() {
             selectedCells={selectedCells}
             onToggleCellSelection={handleToggleCellSelection}
             simulatedCells={simulatedCells}
+            selectedRegion={selectedRegion}
           />
         )}
       </div>

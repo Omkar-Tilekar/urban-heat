@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 from app.services.gis_service import GISService
 from app.services.ml_service import MLService
@@ -30,36 +30,43 @@ ml_service = MLService(gis_service)
 class SimulationRequest(BaseModel):
     cell_ids: List[int]
     intervention_type: str
+    region: str = "india"
 
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "service": "ISRO UHI Engine"}
 
 @app.get("/api/map/stats")
-def get_map_stats():
+def get_map_stats(region: str = "india"):
     try:
-        stats = gis_service.get_summary_stats()
+        stats = gis_service.get_summary_stats(region)
+        if not stats:
+            raise HTTPException(status_code=404, detail=f"Stats for region '{region}' not found")
+            
+        model = ml_service.models.get(region, list(ml_service.models.values())[0])
         # Include baseline model details
         stats["model_params"] = {
-            "ndvi_weight": round(float(ml_service.model.coef_[0]), 2),
-            "built_up_weight": round(float(ml_service.model.coef_[1]), 2),
-            "intercept": round(float(ml_service.model.intercept_), 2)
+            "ndvi_weight": round(float(model.coef_[0]), 2),
+            "built_up_weight": round(float(model.coef_[1]), 2),
+            "intercept": round(float(model.intercept_), 2)
         }
         return stats
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/map/grid")
-def get_map_grid():
+def get_map_grid(region: str = "india"):
     try:
-        return gis_service.get_grid()
+        return gis_service.get_grid(region)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/map/hotspots")
-def get_map_hotspots(eps: float = 0.4, min_samples: int = 4, percentile: float = 85.0):
+def get_map_hotspots(region: str = "india", eps: Optional[float] = None, min_samples: int = 4, percentile: float = 85.0):
     try:
-        return ml_service.detect_hotspots(eps_deg=eps, min_samples=min_samples, lst_percentile=percentile)
+        return ml_service.detect_hotspots(region=region, eps_deg=eps, min_samples=min_samples, lst_percentile=percentile)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -71,14 +78,16 @@ def run_simulation(req: SimulationRequest):
         
         simulated_cells = ml_service.simulate_intervention(
             cell_ids=req.cell_ids,
-            intervention_type=req.intervention_type
+            intervention_type=req.intervention_type,
+            region=req.region
         )
         
         # Add regression coefficients to make output scientifically explainable
+        model = ml_service.models.get(req.region, list(ml_service.models.values())[0])
         coefs = {
-            "ndvi_weight": round(float(ml_service.model.coef_[0]), 2),
-            "built_up_weight": round(float(ml_service.model.coef_[1]), 2),
-            "intercept": round(float(ml_service.model.intercept_), 2)
+            "ndvi_weight": round(float(model.coef_[0]), 2),
+            "built_up_weight": round(float(model.coef_[1]), 2),
+            "intercept": round(float(model.intercept_), 2)
         }
         
         return {

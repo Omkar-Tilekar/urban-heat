@@ -4,37 +4,43 @@ import numpy as np
 
 class GISService:
     def __init__(self, data_path: str = None):
-        if data_path is None:
-            # Resolve path relative to this file: backend/app/services/gis_service.py -> backend/data/bengaluru_grid.json
-            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            self.data_path = os.path.join(base_dir, "data", "bengaluru_grid.json")
-        else:
-            self.data_path = data_path
-        self.grid_data = []
-        self.load_grid()
+        # Resolve data directory relative to this file
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.data_dir = os.path.join(base_dir, "data")
+        self.grids = {}
+        self.load_all_grids()
 
-    def load_grid(self):
-        if not os.path.exists(self.data_path):
-            raise FileNotFoundError(f"Geospatial data not found at {self.data_path}. Please run generate_mock_data.py first.")
-        
-        with open(self.data_path, "r") as f:
-            self.grid_data = json.load(f)
-        
-        # Calculate risk scores upon load
-        self.compute_risk_index()
+    def load_all_grids(self):
+        regions = ["india", "bengaluru", "mumbai", "delhi"]
+        for r in regions:
+            # Map region to filename
+            filename = "delhi_grid.json" if r == "delhi" else f"{r}_grid.json"
+            path = os.path.join(self.data_dir, filename)
+            if os.path.exists(path):
+                with open(path, "r") as f:
+                    grid_data = json.load(f)
+                self.grids[r] = grid_data
+                self.compute_risk_index(r)
+            else:
+                # Fallback: if only bengaluru_grid.json is found, load it as default
+                if r == "india" and os.path.exists(os.path.join(self.data_dir, "bengaluru_grid.json")):
+                    with open(os.path.join(self.data_dir, "bengaluru_grid.json"), "r") as f:
+                        self.grids["india"] = json.load(f)
+                    self.compute_risk_index("india")
+                    
+        # Make sure india has at least some grid loaded
+        if "india" not in self.grids and len(self.grids) > 0:
+            self.grids["india"] = list(self.grids.values())[0]
 
-    def compute_risk_index(self):
-        """
-        Computes the Urban Heat Risk Index (UHRI) based on:
-        UHRI = 0.4 * LST_norm + 0.2 * BuiltUp_norm + 0.2 * (1 - NDVI_norm) + 0.2 * Pop_norm
-        """
-        if not self.grid_data:
+    def compute_risk_index(self, region: str):
+        grid_data = self.grids.get(region)
+        if not grid_data:
             return
 
-        lst_vals = [cell["lst"] for cell in self.grid_data]
-        ndvi_vals = [cell["ndvi"] for cell in self.grid_data]
-        built_vals = [cell["built_up"] for cell in self.grid_data]
-        pop_vals = [cell["pop_density"] for cell in self.grid_data]
+        lst_vals = [cell["lst"] for cell in grid_data]
+        ndvi_vals = [cell["ndvi"] for cell in grid_data]
+        built_vals = [cell["built_up"] for cell in grid_data]
+        pop_vals = [cell["pop_density"] for cell in grid_data]
 
         min_lst, max_lst = min(lst_vals), max(lst_vals)
         min_ndvi, max_ndvi = min(ndvi_vals), max(ndvi_vals)
@@ -45,7 +51,7 @@ class GISService:
         def norm(val, min_v, max_v):
             return (val - min_v) / (max_v - min_v) if max_v > min_v else 0.0
 
-        for cell in self.grid_data:
+        for cell in grid_data:
             lst_n = norm(cell["lst"], min_lst, max_lst)
             ndvi_n = norm(cell["ndvi"], min_ndvi, max_ndvi)
             built_n = norm(cell["built_up"], min_built, max_built)
@@ -73,19 +79,20 @@ class GISService:
             else:
                 cell["risk_level"] = "Extreme"
 
-    def get_grid(self):
-        return self.grid_data
+    def get_grid(self, region: str = "india"):
+        return self.grids.get(region, self.grids.get("india", []))
 
-    def get_summary_stats(self):
-        """
-        Generates aggregate city metrics for the dashboard overview cards.
-        """
-        lst_vals = [cell["lst"] for cell in self.grid_data]
-        ndvi_vals = [cell["ndvi"] for cell in self.grid_data]
-        built_vals = [cell["built_up"] for cell in self.grid_data]
-        risk_vals = [cell["risk_score"] for cell in self.grid_data]
+    def get_summary_stats(self, region: str = "india"):
+        grid_data = self.get_grid(region)
+        if not grid_data:
+            return {}
 
-        levels = [cell["risk_level"] for cell in self.grid_data]
+        lst_vals = [cell["lst"] for cell in grid_data]
+        ndvi_vals = [cell["ndvi"] for cell in grid_data]
+        built_vals = [cell["built_up"] for cell in grid_data]
+        risk_vals = [cell["risk_score"] for cell in grid_data]
+
+        levels = [cell["risk_level"] for cell in grid_data]
         unique_levels, counts = np.unique(levels, return_counts=True)
         level_counts = dict(zip(unique_levels, [int(c) for c in counts]))
 
@@ -96,5 +103,5 @@ class GISService:
             "avg_built_up": round(float(np.mean(built_vals)) * 100, 1),
             "avg_risk": round(float(np.mean(risk_vals)), 1),
             "risk_distribution": level_counts,
-            "total_cells": len(self.grid_data)
+            "total_cells": len(grid_data)
         }

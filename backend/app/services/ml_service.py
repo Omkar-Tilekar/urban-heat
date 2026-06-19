@@ -6,33 +6,40 @@ import json
 class MLService:
     def __init__(self, gis_service):
         self.gis_service = gis_service
-        self.model = Ridge()
-        self.train_simulator()
+        self.models = {}
+        self.train_all_simulators()
 
-    def train_simulator(self):
+    def train_all_simulators(self):
         """
-        Trains a Ridge regression model LST = f(NDVI, BuiltUp)
+        Trains a Ridge regression model LST = f(NDVI, BuiltUp) for each region
         to predict temperatures dynamically based on land cover.
         """
-        grid = self.gis_service.get_grid()
-        X = []
-        y = []
-        for cell in grid:
-            X.append([cell["ndvi"], cell["built_up"]])
-            y.append(cell["lst"])
-            
-        self.X_train = np.array(X)
-        self.y_train = np.array(y)
-        self.model.fit(self.X_train, self.y_train)
-        print(f"Regression Simulator trained. Coeffs: NDVI={self.model.coef_[0]:.3f}, BuiltUp={self.model.coef_[1]:.3f}. Intercept={self.model.intercept_:.3f}")
+        regions = ["india", "bengaluru", "mumbai", "delhi"]
+        for r in regions:
+            grid = self.gis_service.get_grid(r)
+            if not grid:
+                continue
+            X = []
+            y = []
+            for cell in grid:
+                X.append([cell["ndvi"], cell["built_up"]])
+                y.append(cell["lst"])
+                
+            model = Ridge()
+            model.fit(np.array(X), np.array(y))
+            self.models[r] = model
+            print(f"Regression Simulator trained for {r}. Coeffs: NDVI={model.coef_[0]:.3f}, BuiltUp={model.coef_[1]:.3f}. Intercept={model.intercept_:.3f}")
 
-    def detect_hotspots(self, eps_deg: float = 0.75, min_samples: int = 4, lst_percentile: float = 85.0):
+    def detect_hotspots(self, region: str = "india", eps_deg: float = None, min_samples: int = 4, lst_percentile: float = 85.0):
         """
         Detects Urban Heat Islands (UHIs) using DBSCAN clustering.
         Identifies cells with temperatures above the given percentile,
         then clusters their lat/lon coordinates.
         """
-        grid = self.gis_service.get_grid()
+        grid = self.gis_service.get_grid(region)
+        if not grid:
+            return []
+            
         lst_vals = [cell["lst"] for cell in grid]
         threshold = np.percentile(lst_vals, lst_percentile)
         
@@ -43,6 +50,10 @@ class MLService:
             
         coords = np.array([[cell["lon"], cell["lat"]] for cell in hot_cells])
         
+        # Set dynamic DBSCAN eps if none provided
+        if eps_deg is None:
+            eps_deg = 0.75 if region == "india" else 0.02
+            
         # DBSCAN clustering
         db = DBSCAN(eps=eps_deg, min_samples=min_samples).fit(coords)
         labels = db.labels_
@@ -55,7 +66,7 @@ class MLService:
                 
             cell = hot_cells[idx]
             # Explain root cause for this hot cell
-            rca = self.explain_cell(cell)
+            rca = self.explain_cell(cell, region)
             
             hotspots.append({
                 "cell_id": cell["id"],
@@ -72,14 +83,16 @@ class MLService:
             
         return hotspots
 
-    def explain_cell(self, cell):
+    def explain_cell(self, cell, region: str = "india"):
         """
         Explainable AI component: Root Cause Analysis.
         Determines the main drivers of elevated temperature in a cell.
         """
         reasons = []
-        # Calculate contribution metrics relative to average grid characteristics
-        grid = self.gis_service.get_grid()
+        grid = self.gis_service.get_grid(region)
+        if not grid:
+            return []
+            
         avg_ndvi = np.mean([c["ndvi"] for c in grid])
         avg_built = np.mean([c["built_up"] for c in grid])
         avg_pop = np.mean([c["pop_density"] for c in grid])
@@ -108,20 +121,16 @@ class MLService:
         reasons.sort(key=lambda x: x["importance"], reverse=True)
         return [r["cause"] for r in reasons]
 
-    def simulate_intervention(self, cell_ids: list, intervention_type: str):
+    def simulate_intervention(self, cell_ids: list, intervention_type: str, region: str = "india"):
         """
         Simulates the cooling effect of interventions.
         Modifies features, uses the Ridge model to predict new LST,
         and returns the modified cells.
-        
-        Intervention impacts:
-        - 'cool_roof': Applied to built-up areas. Lowers effective built_up contribution, reduces LST.
-        - 'green_roof': Increases NDVI by 0.20, reduces effective built_up by 0.15.
-        - 'urban_forest': Miyawaki forest. Increases NDVI by 0.40, reduces effective built_up by 0.30.
-        - 'cool_pave': Cool pavements. Reduces effective built_up by 0.10.
         """
-        grid = self.gis_service.get_grid()
+        grid = self.gis_service.get_grid(region)
         grid_dict = {cell["id"]: cell for cell in grid}
+        
+        model = self.models.get(region, list(self.models.values())[0])
         
         # In-place simulation metrics
         ndvi_delta = 0.0
@@ -154,7 +163,7 @@ class MLService:
             
             # Predict new LST using Ridge Regressor
             features = np.array([[sim_ndvi, sim_built]])
-            sim_lst = float(self.model.predict(features)[0])
+            sim_lst = float(model.predict(features)[0])
             # Ensure temperature decreases or is realistic
             sim_lst = min(orig_lst, round(sim_lst, 2))
             lst_diff = round(sim_lst - orig_lst, 2)

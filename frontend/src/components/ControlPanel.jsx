@@ -11,6 +11,8 @@ export default function ControlPanel({
   selectedCellsCount,
   onClearSelection,
   onSelectHotspots,
+  selectedRegion,
+  onSelectRegion,
 }) {
   const layersList = [
     { id: 'risk_score', name: 'Urban Heat Risk Index', icon: <Flame size={16} />, color: '#ef4444' },
@@ -18,6 +20,13 @@ export default function ControlPanel({
     { id: 'ndvi', name: 'Vegetation Cover (NDVI)', icon: <Leaf size={16} />, color: '#10b981' },
     { id: 'built_up', name: 'Built-up Density (GHSL)', icon: <Home size={16} />, color: '#4facfe' },
     { id: 'pop_density', name: 'Population Exposure', icon: <Users size={16} />, color: '#a855f7' },
+  ];
+
+  const regions = [
+    { id: 'india', name: 'India (National Scale)' },
+    { id: 'bengaluru', name: 'Bengaluru (Metro Scale)' },
+    { id: 'mumbai', name: 'Mumbai (Metro Scale)' },
+    { id: 'delhi', name: 'Delhi NCR (Metro Scale)' }
   ];
 
   // Map risk distribution stats into chart data
@@ -33,12 +42,44 @@ export default function ControlPanel({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Active Scale Selector */}
+      <div className="glass" style={{ padding: '16px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.25)' }}>
+        <label style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '6px', letterSpacing: '0.5px' }}>
+          Analysis Scale & Region:
+        </label>
+        <select
+          value={selectedRegion}
+          onChange={(e) => onSelectRegion(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            background: 'rgba(10, 13, 20, 0.95)',
+            border: '1px solid var(--border-light)',
+            borderRadius: '6px',
+            color: '#00f2fe',
+            fontFamily: 'var(--font-primary)',
+            fontSize: '0.85rem',
+            fontWeight: 'bold',
+            outline: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+          className="region-select"
+        >
+          {regions.map((r) => (
+            <option key={r.id} value={r.id} style={{ background: '#0a0d14', color: '#fff' }}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* 1. Key Metrics Overview */}
       {stats && (
         <div>
           <h2 className="section-title">
             <BarChart3 size={18} style={{ color: '#00f2fe' }} />
-            India Spatial Grid Overview
+            {selectedRegion === 'india' ? 'India National Overview' : `${regions.find(r => r.id === selectedRegion)?.name} Overview`}
           </h2>
           <div className="stat-grid">
             <div className="stat-card">

@@ -15,6 +15,15 @@ function MapResizer() {
 }
 
 
+// Custom View Controller to animate map flyTo when selectedRegion changes
+function MapViewController({ center, zoom }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom, { animate: true, duration: 1.0 });
+  }, [center, zoom, map]);
+  return null;
+}
+
 export default function HeatMap({
   grid,
   activeLayer,
@@ -23,9 +32,19 @@ export default function HeatMap({
   selectedCells,
   onToggleCellSelection,
   simulatedCells, // Dict of cell_id -> simulated details
+  selectedRegion,
 }) {
-  const mapCenter = [21.0000, 78.0000]; // India Center
-  const mapZoom = 5;
+  // Region centers and zoom levels mapping
+  const regionCenters = {
+    india: { center: [21.0000, 78.0000], zoom: 5 },
+    bengaluru: { center: [12.9716, 77.5946], zoom: 11 },
+    mumbai: { center: [19.0760, 72.8777], zoom: 11 },
+    delhi: { center: [28.6139, 77.2090], zoom: 11 }
+  };
+  
+  const currentRegion = regionCenters[selectedRegion] || regionCenters['india'];
+  const mapCenter = currentRegion.center;
+  const mapZoom = currentRegion.zoom;
 
   // 1. Color Scales
   const getCellColor = (cell) => {
@@ -94,12 +113,24 @@ export default function HeatMap({
   const runBFSSelection = (startCell) => {
     const startColor = getCellColor(startCell);
     
-    // India Grid Coordinates details to calculate row/col indices
-    const lat_min = 8.0;
-    const lat_max = 36.5;
-    const lon_min = 68.0;
-    const lon_max = 97.5;
-    const grid_size = 60;
+    // Grid Coordinates details to calculate row/col indices based on scale
+    const isNational = selectedRegion === 'india';
+    const grid_size = isNational ? 60 : 40;
+    
+    let lat_min, lat_max, lon_min, lon_max;
+    if (isNational) {
+      lat_min = 8.0;
+      lat_max = 36.5;
+      lon_min = 68.0;
+      lon_max = 97.5;
+    } else {
+      const center = regionCenters[selectedRegion] || regionCenters['india'];
+      lat_min = center.center[0] - 0.2;
+      lat_max = center.center[0] + 0.2;
+      lon_min = center.center[1] - 0.2;
+      lon_max = center.center[1] + 0.2;
+    }
+    
     const lat_step = (lat_max - lat_min) / (grid_size - 1);
     const lon_step = (lon_max - lon_min) / (grid_size - 1);
     
@@ -219,6 +250,7 @@ export default function HeatMap({
         preferCanvas={true} // Performance optimization for 2500 markers
       >
         <MapResizer />
+        <MapViewController center={mapCenter} zoom={mapZoom} />
         
         {/* BASE LAYER: CartoDB Dark Matter map tile (No Labels) */}
         <TileLayer
@@ -233,10 +265,14 @@ export default function HeatMap({
           const color = getCellColor(cell);
           const isSimulated = simulatedCells && simulatedCells[cell.id];
           
-          // Compute bounding rectangle edges using the correct India steps (lat half = 0.242, lon half = 0.25)
+          // Compute bounding rectangle edges dynamically depending on region scale
+          const isNational = selectedRegion === 'india';
+          const latHalf = isNational ? 0.242 : 0.00513;
+          const lonHalf = isNational ? 0.25 : 0.00513;
+          
           const bounds = [
-            [cell.lat - 0.242, cell.lon - 0.25],
-            [cell.lat + 0.242, cell.lon + 0.25]
+            [cell.lat - latHalf, cell.lon - lonHalf],
+            [cell.lat + latHalf, cell.lon + lonHalf]
           ];
           
           return (
