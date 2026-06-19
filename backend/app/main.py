@@ -70,6 +70,10 @@ def get_map_hotspots(region: str = "india", eps: Optional[float] = None, min_sam
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+import numpy as np
+from datetime import datetime
+from app.db import get_db
+
 @app.post("/api/simulate")
 def run_simulation(req: SimulationRequest):
     try:
@@ -81,6 +85,21 @@ def run_simulation(req: SimulationRequest):
             intervention_type=req.intervention_type,
             region=req.region
         )
+        
+        # Log simulation run to MongoDB if available
+        db = get_db()
+        if db is not None:
+            try:
+                db.simulations.insert_one({
+                    "region": req.region,
+                    "intervention": req.intervention_type,
+                    "cells_affected_count": len(simulated_cells),
+                    "avg_temp_drop": round(float(np.mean([c["lst_diff"] for c in simulated_cells])), 2) if simulated_cells else 0.0,
+                    "timestamp": datetime.utcnow()
+                })
+                print(f"Logged simulation run for region '{req.region}' to MongoDB.")
+            except Exception as e:
+                print(f"Could not log simulation to MongoDB: {e}")
         
         # Add regression coefficients to make output scientifically explainable
         model = ml_service.models.get(req.region, list(ml_service.models.values())[0])

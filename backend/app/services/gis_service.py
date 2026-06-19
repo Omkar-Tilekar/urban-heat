@@ -1,6 +1,7 @@
 import os
 import json
 import numpy as np
+from app.db import get_db
 
 class GISService:
     def __init__(self, data_path: str = None):
@@ -12,8 +13,65 @@ class GISService:
 
     def load_all_grids(self):
         regions = ["india", "bengaluru", "mumbai", "delhi"]
+        
+        # Try connecting to MongoDB database
+        db = get_db()
+        
+        if db is not None:
+            print("MongoDB detected! Initializing database grid layers...")
+            try:
+                for r in regions:
+                    # Check if cells for this region already exist in the database
+                    count = db.cells.count_documents({"region": r})
+                    if count > 0:
+                        # Load grid data from MongoDB collection
+                        print(f"Loading '{r}' grid layer from MongoDB ({count} cells)...")
+                        cursor = db.cells.find({"region": r})
+                        grid_data = []
+                        for doc in cursor:
+                            # Remove the MongoDB ObjectId for JSON serialization
+                            doc.pop("_id", None)
+                            grid_data.append(doc)
+                        self.grids[r] = grid_data
+                        self.compute_risk_index(r)
+                    else:
+                        # Seed MongoDB from local JSON files
+                        filename = "delhi_grid.json" if r == "delhi" else f"{r}_grid.json"
+                        path = os.path.join(self.data_dir, filename)
+                        if os.path.exists(path):
+                            print(f"Seeding MongoDB with '{r}' grid from local JSON...")
+                            with open(path, "r") as f:
+                                grid_data = json.load(f)
+                            
+                            # Standardize documents for MongoDB geospatial indexing
+                            for cell in grid_data:
+                                cell["region"] = r
+                                cell["location"] = {
+                                    "type": "Point",
+                                    "coordinates": [cell["lon"], cell["lat"]] # GeoJSON format: [longitude, latitude]
+                                }
+                            
+                            # Batch insert documents
+                            db.cells.insert_many(grid_data)
+                            
+                            # Create indexes
+                            db.cells.create_index([("location", "2dsphere")])
+                            db.cells.create_index([("region", 1)])
+                            db.cells.create_index([("region", 1), ("id", 1)])
+                            
+                            # Clean BSON ObjectId key and cache in-memory
+                            for cell in grid_data:
+                                cell.pop("_id", None)
+                            self.grids[r] = grid_data
+                            self.compute_risk_index(r)
+                return
+            except Exception as e:
+                print(f"Failed to load grids from MongoDB: {e}. Falling back to file storage.")
+                self.grids = {} # Reset and proceed to file fallback
+                
+        # File-based Fallback
+        print("Using local JSON file-based storage...")
         for r in regions:
-            # Map region to filename
             filename = "delhi_grid.json" if r == "delhi" else f"{r}_grid.json"
             path = os.path.join(self.data_dir, filename)
             if os.path.exists(path):
@@ -22,7 +80,6 @@ class GISService:
                 self.grids[r] = grid_data
                 self.compute_risk_index(r)
             else:
-                # Fallback: if only bengaluru_grid.json is found, load it as default
                 if r == "india" and os.path.exists(os.path.join(self.data_dir, "bengaluru_grid.json")):
                     with open(os.path.join(self.data_dir, "bengaluru_grid.json"), "r") as f:
                         self.grids["india"] = json.load(f)
