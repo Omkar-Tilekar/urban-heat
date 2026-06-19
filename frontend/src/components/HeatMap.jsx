@@ -14,6 +14,7 @@ function MapResizer() {
   return null;
 }
 
+
 export default function HeatMap({
   grid,
   activeLayer,
@@ -23,8 +24,8 @@ export default function HeatMap({
   onToggleCellSelection,
   simulatedCells, // Dict of cell_id -> simulated details
 }) {
-  const mapCenter = [19.1000, 76.6000]; // Maharashtra Center
-  const mapZoom = 7;
+  const mapCenter = [21.0000, 78.0000]; // India Center
+  const mapZoom = 5;
 
   // 1. Color Scales
   const getCellColor = (cell) => {
@@ -89,6 +90,78 @@ export default function HeatMap({
     return match ? match.root_causes : [];
   };
 
+  // Run BFS Region-Growing Flood Fill on contiguous cells sharing the same layer category color
+  const runBFSSelection = (startCell) => {
+    const startColor = getCellColor(startCell);
+    
+    // India Grid Coordinates details to calculate row/col indices
+    const lat_min = 8.0;
+    const lat_max = 36.5;
+    const lon_min = 68.0;
+    const lon_max = 97.5;
+    const grid_size = 60;
+    const lat_step = (lat_max - lat_min) / (grid_size - 1);
+    const lon_step = (lon_max - lon_min) / (grid_size - 1);
+    
+    const cellsWithCoords = grid.map(c => ({
+      ...c,
+      row: Math.round((c.lat - lat_min) / lat_step),
+      col: Math.round((c.lon - lon_min) / lon_step),
+      color: getCellColor(c)
+    }));
+    
+    const cellMap = new Map();
+    cellsWithCoords.forEach(c => {
+      cellMap.set(`${c.row},${c.col}`, c);
+    });
+    
+    const startNode = cellsWithCoords.find(c => c.id === startCell.id);
+    if (!startNode) return [startCell.id];
+    
+    const visited = new Set();
+    const queue = [startNode];
+    visited.add(startNode.id);
+    const selectedIds = [];
+    
+    while (queue.length > 0) {
+      const current = queue.shift();
+      selectedIds.push(current.id);
+      
+      // Check 8-connectivity (adjacent + diagonal grid cells within index delta <= 1)
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = current.row + dr;
+          const nc = current.col + dc;
+          const neighbor = cellMap.get(`${nr},${nc}`);
+          if (neighbor && !visited.has(neighbor.id)) {
+            if (neighbor.color === startColor) {
+              visited.add(neighbor.id);
+              queue.push(neighbor);
+            }
+          }
+        }
+      }
+    }
+    
+    return selectedIds;
+  };
+
+  const handleCellSelectionToggle = (cell) => {
+    const regionIds = runBFSSelection(cell);
+    const isCurrentlySelected = selectedCells.includes(cell.id);
+    
+    let nextSelection;
+    if (isCurrentlySelected) {
+      // Deselect entire contiguous region
+      nextSelection = selectedCells.filter(id => !regionIds.includes(id));
+    } else {
+      // Select entire contiguous region
+      nextSelection = Array.from(new Set([...selectedCells, ...regionIds]));
+    }
+    onToggleCellSelection(nextSelection);
+  };
+
   // 2. Legend Colors Matrix to show on map
   const getLegendLabels = () => {
     if (activeLayer === 'lst') {
@@ -147,23 +220,23 @@ export default function HeatMap({
       >
         <MapResizer />
         
-        {/* CartoDB Dark Matter map tile */}
+        {/* BASE LAYER: CartoDB Dark Matter map tile (No Labels) */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
         />
 
-        {/* Render Grid Cells as Contiguous Rectangles */}
+        {/* MIDDLE LAYER: Render Grid Cells as Contiguous Rectangles */}
         {grid.map((cell) => {
           const isSelected = selectedCells.includes(cell.id);
           const clusterId = getHotspotCluster(cell.id);
           const color = getCellColor(cell);
           const isSimulated = simulatedCells && simulatedCells[cell.id];
           
-          // Compute bounding rectangle edges: lat step half = 0.084, lon step half = 0.109
+          // Compute bounding rectangle edges using the correct India steps (lat half = 0.242, lon half = 0.25)
           const bounds = [
-            [cell.lat - 0.084, cell.lon - 0.109],
-            [cell.lat + 0.084, cell.lon + 0.109]
+            [cell.lat - 0.242, cell.lon - 0.25],
+            [cell.lat + 0.242, cell.lon + 0.25]
           ];
           
           return (
@@ -172,10 +245,16 @@ export default function HeatMap({
                 bounds={bounds}
                 pathOptions={{
                   fillColor: color,
-                  fillOpacity: isSimulated ? 0.9 : isSelected ? 0.85 : clusterId !== null ? 0.8 : 0.65,
+                  fillOpacity: isSimulated ? 0.9 : isSelected ? 0.85 : clusterId !== null ? 0.8 : 0.45,
                   color: isSimulated ? '#00f2fe' : isSelected ? '#00f2fe' : clusterId !== null ? '#ef4444' : '#1e293b',
                   weight: isSimulated ? 2.5 : isSelected ? 2.0 : clusterId !== null ? 1.5 : 0.3,
                   dashArray: clusterId !== null ? '3, 4' : null,
+                  stroke: isSelected || clusterId !== null || isSimulated, // Seamless layout unless selected/hotspot
+                }}
+                eventHandlers={{
+                  click: () => {
+                    handleCellSelectionToggle(cell);
+                  }
                 }}
               >
                 <Popup>
@@ -241,11 +320,11 @@ export default function HeatMap({
 
                     {/* Interaction Button */}
                     <button
-                      onClick={() => onToggleCellSelection(cell.id)}
+                      onClick={() => handleCellSelectionToggle(cell)}
                       className={`btn ${isSelected ? 'btn-secondary' : 'btn-primary'}`}
                       style={{ padding: '6px', fontSize: '0.75rem', marginTop: '10px', width: '100%' }}
                     >
-                      {isSelected ? 'Remove from Selection' : 'Select for Simulation'}
+                      {isSelected ? 'Remove Region from Selection' : 'Select Region for Simulation'}
                     </button>
                   </div>
                 </Popup>
@@ -253,6 +332,12 @@ export default function HeatMap({
             </React.Fragment>
           );
         })}
+
+        {/* TOP LAYER: CartoDB Dark Matter map labels (Rendered on top of grid vectors) */}
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png"
+          pane="shadowPane"
+        />
       </MapContainer>
 
       {/* Floating Legend */}

@@ -38,7 +38,7 @@ export default function ControlPanel({
         <div>
           <h2 className="section-title">
             <BarChart3 size={18} style={{ color: '#00f2fe' }} />
-            Maharashtra State Overview
+            India Spatial Grid Overview
           </h2>
           <div className="stat-grid">
             <div className="stat-card">

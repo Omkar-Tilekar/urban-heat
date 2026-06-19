@@ -26,7 +26,7 @@ class MLService:
         self.model.fit(self.X_train, self.y_train)
         print(f"Regression Simulator trained. Coeffs: NDVI={self.model.coef_[0]:.3f}, BuiltUp={self.model.coef_[1]:.3f}. Intercept={self.model.intercept_:.3f}")
 
-    def detect_hotspots(self, eps_deg: float = 0.4, min_samples: int = 4, lst_percentile: float = 85.0):
+    def detect_hotspots(self, eps_deg: float = 0.75, min_samples: int = 4, lst_percentile: float = 85.0):
         """
         Detects Urban Heat Islands (UHIs) using DBSCAN clustering.
         Identifies cells with temperatures above the given percentile,

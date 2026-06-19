@@ -65,10 +65,14 @@ export default function App() {
   }, [showHotspots]);
 
   // 3. Selection Handlers
-  const handleToggleCellSelection = (cellId) => {
-    setSelectedCells((prev) =>
-      prev.includes(cellId) ? prev.filter((id) => id !== cellId) : [...prev, cellId]
-    );
+  const handleToggleCellSelection = (cellIdOrArray) => {
+    if (Array.isArray(cellIdOrArray)) {
+      setSelectedCells(cellIdOrArray);
+    } else {
+      setSelectedCells((prev) =>
+        prev.includes(cellIdOrArray) ? prev.filter((id) => id !== cellIdOrArray) : [...prev, cellIdOrArray]
+      );
+    }
   };
 
   const handleClearSelection = () => {
@@ -181,7 +185,7 @@ export default function App() {
           {loadingGrid ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '12px' }}>
               <div className="hotspot-pulse" style={{ width: '40px', height: '40px', borderRadius: '50%', border: '3px solid #00f2fe', borderTopColor: 'transparent', animation: 'spin 1s linear infinite' }} />
-              <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Ingesting ISRO geospatial layers...</span>
+              <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Ingesting India Geospatial Grid layers...</span>
             </div>
           ) : (
             <>
@@ -231,7 +235,7 @@ export default function App() {
         {/* Footer */}
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border-light)', fontSize: '0.7rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <Info size={12} />
-          <span>ISRO Hackathon Model MVP. Powered by GIS & Ridge Regression.</span>
+          <span>ISRO India-Wide Climate Platform. Powered by GIS & Ridge Regression.</span>
         </div>
       </div>
 
@@ -239,7 +243,7 @@ export default function App() {
       <div className="map-container">
         {loadingGrid ? (
           <div style={{ width: '100%', height: '100%', backgroundColor: '#0b0e14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#00f2fe', fontSize: '1.2rem', fontFamily: 'Outfit' }}>Loading Bhuvan Grid Layer Map...</span>
+            <span style={{ color: '#00f2fe', fontSize: '1.2rem', fontFamily: 'Outfit' }}>Loading India Geospatial Grid Map...</span>
           </div>
         ) : (
           <HeatMap

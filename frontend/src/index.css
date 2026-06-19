@@ -440,3 +440,8 @@ select:focus, input:focus, textarea:focus {
 .hotspot-pulse {
   animation: pulse 2s infinite ease-in-out;
 }
+
+/* Ensure clicks pass through the top labels TileLayer rendered in the shadowPane */
+.leaflet-shadow-pane {
+  pointer-events: none !important;
+}
